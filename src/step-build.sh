@@ -1,28 +1,54 @@
-#!/usr/bin/env psh
+#!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT="${INPUT_PROJECT_PATH:-.}"
-LOG="${INPUT_LOG_FILE:-pipery.jsonl}"
+PM="${PACKAGE_MANAGER:-${INPUT_PACKAGE_MANAGER:-auto}}"
+PM=$(echo "$PM" | tr '[:upper:]' '[:lower:]')
 
-cd "$PROJECT"
-BUILD_TOOL=""
-if [ -f pyproject.toml ] && grep -q '\[tool\.poetry\]' pyproject.toml; then
-  pip install poetry -q 2>/dev/null || pip3 install poetry --break-system-packages -q 2>/dev/null || true
-  poetry build
-  BUILD_TOOL="poetry"
-elif [ -f pyproject.toml ] || [ -f setup.cfg ]; then
-  pip install build -q 2>/dev/null || pip3 install build --break-system-packages -q 2>/dev/null || true
-  python3 -m build
-  BUILD_TOOL="python-build"
-elif [ -f setup.py ]; then
-  pip install build -q 2>/dev/null || pip3 install build --break-system-packages -q 2>/dev/null || true
-  python3 -m build
-  BUILD_TOOL="python-build"
+if [ -z "$PM" ] || [ "$PM" = "auto" ]; then
+    if [ -f "pyproject.toml" ]; then
+        if grep -q -i "poetry" pyproject.toml; then
+            PM="poetry"
+        elif grep -q -i "hatch" pyproject.toml; then
+            PM="hatch"
+        elif grep -q -i "flit" pyproject.toml; then
+            PM="flit"
+        elif grep -q -i "uv" pyproject.toml; then
+            PM="uv"
+        else
+            PM="pip"
+        fi
+    elif [ -f "setup.py" ]; then
+        PM="setuptools"
+    else
+        PM="pip"
+    fi
+    echo "Autodetected package manager: $PM"
 else
-  echo "No build system detected, skipping build."
-  printf '{"event":"build","status":"skipped","reason":"no_build_system"}\n' >> "$LOG"
+    echo "Using explicitly selected package manager: $PM"
 fi
 
-if [ -n "$BUILD_TOOL" ]; then
-  printf '{"event":"build","status":"success","tool":"%s"}\n' "$BUILD_TOOL" >> "$LOG"
-fi
+echo "::group::Building package with $PM"
+
+case "$PM" in
+    uv)
+        uv build
+        ;;
+    poetry)
+        poetry build
+        ;;
+    hatch)
+        hatch build
+        ;;
+    flit)
+        flit build
+        ;;
+    pip|setuptools|build)
+        python -m build
+        ;;
+    *)
+        echo "Warning: Unrecognized package manager '$PM'. Falling back to 'python -m build'."
+        python -m build
+        ;;
+esac
+
+echo "::endgroup::"
