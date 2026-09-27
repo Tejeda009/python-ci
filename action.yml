@@ -86,7 +86,6 @@ runs:
   steps:
     - id: main
       shell: bash
-      run: ${{ github.action_path }}/src/main.sh
       env:
         INPUT_PROJECT_PATH: ${{ inputs.project_path }}
         INPUT_CONFIG_FILE: ${{ inputs.config_file }}
@@ -108,6 +107,9 @@ runs:
         INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
         INPUT_TARGET_BRANCH: ${{ inputs.target_branch }}
         INPUT_LOG_FILE: ${{ inputs.log_file }}
+      run: |
+          set -euo pipefail
+          "$GITHUB_ACTION_PATH/src/main.sh"
 branding:
   icon: package
   color: blue
