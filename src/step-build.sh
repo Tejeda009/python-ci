@@ -3,6 +3,9 @@ set -euo pipefail
 
 PROJECT="${INPUT_PROJECT_PATH:-.}"
 LOG="${INPUT_LOG_FILE:-pipery.jsonl}"
+WORKSPACE_DIR="$(pwd)"
+if [[ "${LOG}" != /* ]]; then LOG="${WORKSPACE_DIR}/${LOG}"; fi
+mkdir -p "$(dirname "${LOG}")"
 
 PM="${INPUT_PACKAGE_MANAGER:-auto}"
 PM=$(echo "$PM" | tr '[:upper:]' '[:lower:]')

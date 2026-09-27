@@ -3,6 +3,9 @@ set -euo pipefail
 
 PROJECT="${INPUT_PROJECT_PATH:-.}"
 LOG="${INPUT_LOG_FILE:-pipery.jsonl}"
+WORKSPACE_DIR="$(pwd)"
+if [[ "${LOG}" != /* ]]; then LOG="${WORKSPACE_DIR}/${LOG}"; fi
+mkdir -p "$(dirname "${LOG}")"
 
 cd "$PROJECT"
 pip install build -q 2>/dev/null || pip3 install build --break-system-packages -q 2>/dev/null || true

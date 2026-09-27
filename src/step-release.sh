@@ -3,6 +3,9 @@ set -euo pipefail
 
 LOG="${INPUT_LOG_FILE:-pipery.jsonl}"
 PROJECT="${INPUT_PROJECT_PATH:-.}"
+WORKSPACE_DIR="$(pwd)"
+if [[ "${LOG}" != /* ]]; then LOG="${WORKSPACE_DIR}/${LOG}"; fi
+mkdir -p "$(dirname "${LOG}")"
 SHORT_SHA="${GITHUB_SHA:-}"
 SHORT_SHA="${SHORT_SHA:0:7}"
 

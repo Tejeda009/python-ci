@@ -84,9 +84,47 @@ inputs:
 runs:
   using: composite
   steps:
+    - id: config
+      shell: bash
+      env:
+        INPUT_PROJECT_PATH: ${{ inputs.project_path }}
+        INPUT_CONFIG_FILE: ${{ inputs.config_file }}
+        INPUT_PYTHON_VERSION: ${{ inputs.python_version }}
+      run: |
+        set -euo pipefail
+        project_path="${INPUT_PROJECT_PATH}"
+        config_file="${INPUT_CONFIG_FILE}"
+        if [[ "${config_file}" = /* ]]; then
+          config_path="${config_file}"
+        else
+          config_path="${project_path}/${config_file}"
+        fi
+        python3 -c 'import yaml' 2>/dev/null || pip install pyyaml -q
+        python3 - "${config_path}" "${INPUT_PYTHON_VERSION}" "${GITHUB_OUTPUT}" <<'PY'
+        import re
+        import sys
+
+        import yaml
+
+        config_path, input_version, output_path = sys.argv[1:]
+        version = input_version
+        try:
+            with open(config_path, encoding="utf-8") as config_file:
+                config = yaml.safe_load(config_file) or {}
+        except FileNotFoundError:
+            config = {}
+
+        config_version = config.get("python_version")
+        if input_version == "3.11" and isinstance(config_version, (str, int, float)):
+            version = str(config_version)
+        if not re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,2}(?:[-+].*)?", version):
+            raise SystemExit(f"Invalid python_version: {version}")
+        with open(output_path, "a", encoding="utf-8") as output:
+            output.write(f"python_version={version}\n")
+        PY
     - uses: actions/setup-python@v5
       with:
-        python-version: ${{ inputs.python_version }}
+        python-version: ${{ steps.config.outputs.python_version }}
     - id: main
       shell: bash
       env:
