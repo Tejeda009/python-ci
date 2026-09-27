@@ -11,7 +11,7 @@ cd "$PROJECT"
 BUILD_TOOL=""
 
 
-if [ -z "$PM" ] \vert{}\vert{} [ "$PM" = "auto" ]; then
+if [ -z "$PM" ] || [ "$PM" = "auto" ]; then
   if [ -f pyproject.toml ]; then
     if grep -qE '^build-backend[[:space:]]*=[[:space:]]*["'\'']poetry\.core' pyproject.toml || grep -q '\[tool\.poetry\]' pyproject.toml; then
       PM="poetry"
@@ -19,8 +19,7 @@ if [ -z "$PM" ] \vert{}\vert{} [ "$PM" = "auto" ]; then
       PM="hatch"
     elif grep -qE '^build-backend[[:space:]]*=[[:space:]]*["'\'']flit_core\.build' pyproject.toml || grep -q '\[tool\.flit' pyproject.toml; then
       PM="flit"
-    elif grep -q '\[tool\.uv\]' pyproject.toml; then
-
+    elif grep -qE '^build-backend[[:space:]]*=[[:space:]]*["'\'']uv_build' pyproject.toml || grep -q '\[tool\.uv\.build-backend\]' pyproject.toml; then
       PM="uv"
     else
       PM="python-build"

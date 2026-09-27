@@ -84,6 +84,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python_version }}
     - id: main
       shell: bash
       env:

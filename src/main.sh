@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="${GITHUB_ACTION_PATH:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+SCRIPT_DIR="${GITHUB_ACTION_PATH:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SRC_DIR="${SCRIPT_DIR}/src"
+WORKSPACE_DIR="$(pwd)"
 
 export INPUT_PROJECT_PATH="${INPUT_PROJECT_PATH:-${PIPERY_TEST_PROJECT_PATH:-.}}"
 export INPUT_LOG_FILE="${INPUT_LOG_FILE:-${PIPERY_LOG_PATH:-pipery.jsonl}}"
@@ -11,6 +12,8 @@ if [ ! -d "${INPUT_PROJECT_PATH}" ]; then
   echo "ERROR: project path does not exist: ${INPUT_PROJECT_PATH}" >&2
   exit 1
 fi
+INPUT_PROJECT_PATH="$(cd "${INPUT_PROJECT_PATH}" && pwd)"
+export INPUT_PROJECT_PATH
 
 echo "==> pipery-python-ci starting"
 echo "    project_path=${INPUT_PROJECT_PATH}"
@@ -31,7 +34,11 @@ fi
 pip install pyyaml -q 2>/dev/null || pip3 install pyyaml -q 2>/dev/null || true
 
 export INPUT_CONFIG_FILE="${INPUT_CONFIG_FILE:-.pipery/config.yaml}"
-CONFIG_PATH="${INPUT_PROJECT_PATH}/${INPUT_CONFIG_FILE}"
+if [[ "${INPUT_CONFIG_FILE}" = /* ]]; then
+  CONFIG_PATH="${INPUT_CONFIG_FILE}"
+else
+  CONFIG_PATH="${INPUT_PROJECT_PATH}/${INPUT_CONFIG_FILE}"
+fi
 
 
 if [ "${INPUT_PACKAGE_MANAGER:-auto}" = "auto" ]; then unset INPUT_PACKAGE_MANAGER; fi
@@ -40,6 +47,7 @@ if [ "${INPUT_SKIP_SAST:-false}" = "false" ]; then unset INPUT_SKIP_SAST; fi
 if [ "${INPUT_SKIP_SCA:-false}" = "false" ]; then unset INPUT_SKIP_SCA; fi
 if [ "${INPUT_SKIP_LINT:-false}" = "false" ]; then unset INPUT_SKIP_LINT; fi
 if [ "${INPUT_SKIP_BUILD:-false}" = "false" ]; then unset INPUT_SKIP_BUILD; fi
+if [ -z "${INPUT_TESTS_PATH:-}" ]; then unset INPUT_TESTS_PATH; fi
 if [ "${INPUT_SKIP_TEST:-false}" = "false" ]; then unset INPUT_SKIP_TEST; fi
 if [ "${INPUT_SKIP_VERSIONING:-false}" = "false" ]; then unset INPUT_SKIP_VERSIONING; fi
 if [ "${INPUT_SKIP_PACKAGING:-false}" = "false" ]; then unset INPUT_SKIP_PACKAGING; fi
@@ -47,12 +55,16 @@ if [ "${INPUT_SKIP_RELEASE:-false}" = "false" ]; then unset INPUT_SKIP_RELEASE; 
 if [ "${INPUT_SKIP_REINTEGRATION:-false}" = "false" ]; then unset INPUT_SKIP_REINTEGRATION; fi
 if [ "${INPUT_VERSION_BUMP:-patch}" = "patch" ]; then unset INPUT_VERSION_BUMP; fi
 if [ "${INPUT_REGISTRY:-pypi}" = "pypi" ]; then unset INPUT_REGISTRY; fi
+if [ "${INPUT_TARGET_BRANCH:-main}" = "main" ]; then unset INPUT_TARGET_BRANCH; fi
+if [ "${INPUT_LOG_FILE:-pipery.jsonl}" = "pipery.jsonl" ]; then unset INPUT_LOG_FILE; fi
 
 
-if [ -f "${CONFIG_PATH}" ] && [ -x "${SRC_DIR}/read-config.sh" ]; then
-  eval "$("${SRC_DIR}/read-config.sh" "${CONFIG_PATH}")"
-elif [ -f "${INPUT_CONFIG_FILE}" ] && [ -x "${SRC_DIR}/read-config.sh" ]; then
-  eval "$("${SRC_DIR}/read-config.sh" "${INPUT_CONFIG_FILE}")"
+if [ -x "${SRC_DIR}/read-config.sh" ]; then
+  while IFS=$'\t' read -r env_key encoded_value; do
+    [ -n "${env_key}" ] || continue
+    config_value="$(printf '%s' "${encoded_value}" | base64 --decode)"
+    export "${env_key}=${config_value}"
+  done < <("${SRC_DIR}/read-config.sh" "${CONFIG_PATH}")
 fi
 
 
@@ -71,6 +83,14 @@ export INPUT_VERSION_BUMP="${INPUT_VERSION_BUMP:-patch}"
 export INPUT_REGISTRY="${INPUT_REGISTRY:-pypi}"
 export INPUT_PYPI_TOKEN="${INPUT_PYPI_TOKEN:-}"
 export INPUT_GITHUB_TOKEN="${INPUT_GITHUB_TOKEN:-}"
+
+LOG_FILE="${INPUT_LOG_FILE:-pipery.jsonl}"
+if [[ "${LOG_FILE}" = /* ]]; then
+  export INPUT_LOG_FILE="${LOG_FILE}"
+else
+  export INPUT_LOG_FILE="${WORKSPACE_DIR}/${LOG_FILE}"
+fi
+mkdir -p "$(dirname "${INPUT_LOG_FILE}")"
 
 # Esecuzione Steps
 if [ "${INPUT_SKIP_SAST}" != "true" ]; then

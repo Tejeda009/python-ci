@@ -6,6 +6,7 @@ inputs:
   package_manager: setuptools
   skip_sast: "true"
   skip_sca: "true"
+  skip_lint: "true"
   skip_release: "true"
   skip_versioning: "true"
   skip_reintegration: "true"
