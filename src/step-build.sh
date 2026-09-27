@@ -1,54 +1,76 @@
-#!/usr/bin/env bash
+#!/usr/bin/env psh
 set -euo pipefail
 
-PM="${PACKAGE_MANAGER:-${INPUT_PACKAGE_MANAGER:-auto}}"
+PROJECT="${INPUT_PROJECT_PATH:-.}"
+LOG="${INPUT_LOG_FILE:-pipery.jsonl}"
+
+PM="${INPUT_PACKAGE_MANAGER:-auto}"
 PM=$(echo "$PM" | tr '[:upper:]' '[:lower:]')
 
-if [ -z "$PM" ] || [ "$PM" = "auto" ]; then
-    if [ -f "pyproject.toml" ]; then
-        if grep -q -i "poetry" pyproject.toml; then
-            PM="poetry"
-        elif grep -q -i "hatch" pyproject.toml; then
-            PM="hatch"
-        elif grep -q -i "flit" pyproject.toml; then
-            PM="flit"
-        elif grep -q -i "uv" pyproject.toml; then
-            PM="uv"
-        else
-            PM="pip"
-        fi
-    elif [ -f "setup.py" ]; then
-        PM="setuptools"
+cd "$PROJECT"
+BUILD_TOOL=""
+
+
+if [ -z "$PM" ] \vert{}\vert{} [ "$PM" = "auto" ]; then
+  if [ -f pyproject.toml ]; then
+    if grep -qE '^build-backend[[:space:]]*=[[:space:]]*["'\'']poetry\.core' pyproject.toml || grep -q '\[tool\.poetry\]' pyproject.toml; then
+      PM="poetry"
+    elif grep -qE '^build-backend[[:space:]]*=[[:space:]]*["'\'']hatchling\.build' pyproject.toml || grep -q '\[tool\.hatch' pyproject.toml; then
+      PM="hatch"
+    elif grep -qE '^build-backend[[:space:]]*=[[:space:]]*["'\'']flit_core\.build' pyproject.toml || grep -q '\[tool\.flit' pyproject.toml; then
+      PM="flit"
+    elif grep -q '\[tool\.uv\]' pyproject.toml; then
+
+      PM="uv"
     else
-        PM="pip"
+      PM="python-build"
     fi
-    echo "Autodetected package manager: $PM"
+  elif [ -f setup.cfg ] || [ -f setup.py ]; then
+    PM="python-build"
+  else
+    echo "No build system detected, skipping build."
+    printf '{"event":"build","status":"skipped","reason":"no_build_system"}\n' >> "$LOG"
+    exit 0
+  fi
+  echo "Autodetected package manager: $PM"
 else
-    echo "Using explicitly selected package manager: $PM"
+  echo "Using explicitly selected package manager: $PM"
 fi
 
-echo "::group::Building package with $PM"
-
 case "$PM" in
-    uv)
-        uv build
-        ;;
-    poetry)
-        poetry build
-        ;;
-    hatch)
-        hatch build
-        ;;
-    flit)
-        flit build
-        ;;
-    pip|setuptools|build)
-        python -m build
-        ;;
-    *)
-        echo "Warning: Unrecognized package manager '$PM'. Falling back to 'python -m build'."
-        python -m build
-        ;;
+  poetry)
+    pip install poetry -q 2>/dev/null || pip3 install poetry --break-system-packages -q 2>/dev/null || true
+    poetry build
+    BUILD_TOOL="poetry"
+    ;;
+  uv)
+    pip install uv -q 2>/dev/null || pip3 install uv --break-system-packages -q 2>/dev/null || true
+    uv build
+    BUILD_TOOL="uv"
+    ;;
+  hatch)
+    pip install hatch -q 2>/dev/null || pip3 install hatch --break-system-packages -q 2>/dev/null || true
+    hatch build
+    BUILD_TOOL="hatch"
+    ;;
+  flit)
+    pip install flit -q 2>/dev/null || pip3 install flit --break-system-packages -q 2>/dev/null || true
+    flit build
+    BUILD_TOOL="flit"
+    ;;
+  python-build|build|pip|setuptools)
+    pip install build -q 2>/dev/null || pip3 install build --break-system-packages -q 2>/dev/null || true
+    python3 -m build
+    BUILD_TOOL="python-build"
+    ;;
+  *)
+    echo "Warning: Unrecognized package manager '$PM'. Falling back to 'python -m build'."
+    pip install build -q 2>/dev/null || pip3 install build --break-system-packages -q 2>/dev/null || true
+    python3 -m build
+    BUILD_TOOL="python-build"
+    ;;
 esac
 
-echo "::endgroup::"
+if [ -n "$BUILD_TOOL" ]; then
+  printf '{"event":"build","status":"success","tool":"%s"}\n' "$BUILD_TOOL" >> "$LOG"
+fi
