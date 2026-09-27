@@ -29,6 +29,12 @@ if [ ! -d "${INPUT_PROJECT_PATH}" ]; then
   exit 1
 fi
 
+CONFIG_PATH="${INPUT_CONFIG_FILE:-.pipery/config.yaml}"
+
+if [ -f "$CONFIG_PATH" ]; then
+    eval "$("${SCRIPT_DIR}/read-config.sh" "$CONFIG_PATH")"
+fi
+
 echo "==> pipery-python-ci starting"
 echo "    project_path=${INPUT_PROJECT_PATH}"
 echo "    log_file=${INPUT_LOG_FILE}"
