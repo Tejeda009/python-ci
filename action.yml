@@ -86,16 +86,28 @@ runs:
   steps:
     - id: main
       shell: bash
-      run: |
-        set -euo pipefail
-        project_path="${INPUT_PROJECT_PATH:-${PIPERY_TEST_PROJECT_PATH:-.}}"
-        log_path="${PIPERY_LOG_PATH:-pipery.jsonl}"
-        if [ ! -d "$project_path" ]; then
-          echo "Expected project path to exist: $project_path" >&2
-          exit 1
-        fi
-        printf '{"event":"build","status":"success","project_path":"%s"}\n' "$project_path" > "$log_path"
-        echo "Implement your action logic here for $project_path."
+      run: ${{ github.action_path }}/src/main.sh
+      env:
+        INPUT_PROJECT_PATH: ${{ inputs.project_path }}
+        INPUT_CONFIG_FILE: ${{ inputs.config_file }}
+        INPUT_PACKAGE_MANAGER: ${{ inputs.package_manager }}
+        INPUT_PYTHON_VERSION: ${{ inputs.python_version }}
+        INPUT_SKIP_SAST: ${{ inputs.skip_sast }}
+        INPUT_SKIP_SCA: ${{ inputs.skip_sca }}
+        INPUT_SKIP_LINT: ${{ inputs.skip_lint }}
+        INPUT_SKIP_BUILD: ${{ inputs.skip_build }}
+        INPUT_TESTS_PATH: ${{ inputs.tests_path }}
+        INPUT_SKIP_TEST: ${{ inputs.skip_test }}
+        INPUT_SKIP_VERSIONING: ${{ inputs.skip_versioning }}
+        INPUT_SKIP_PACKAGING: ${{ inputs.skip_packaging }}
+        INPUT_SKIP_RELEASE: ${{ inputs.skip_release }}
+        INPUT_SKIP_REINTEGRATION: ${{ inputs.skip_reintegration }}
+        INPUT_VERSION_BUMP: ${{ inputs.version_bump }}
+        INPUT_REGISTRY: ${{ inputs.registry }}
+        INPUT_PYPI_TOKEN: ${{ inputs.pypi_token }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+        INPUT_TARGET_BRANCH: ${{ inputs.target_branch }}
+        INPUT_LOG_FILE: ${{ inputs.log_file }}
 branding:
   icon: package
   color: blue
